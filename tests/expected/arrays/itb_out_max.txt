@@ -1,0 +1,4 @@
+# itb_out_max
+# shape (3,), dtype float64, range [1, 5]
+#
+[1. 2. 5.]

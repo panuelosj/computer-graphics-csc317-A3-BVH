@@ -1,0 +1,4 @@
+# bbi_expected
+# shape (4,), dtype bool
+#
+[ True False  True False]

@@ -1,0 +1,4 @@
+# pbd_expected
+# shape (5,), dtype float64, range [0, 4]
+#
+[0. 1. 2. 3. 4.]

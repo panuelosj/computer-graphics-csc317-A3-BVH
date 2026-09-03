@@ -1,0 +1,4 @@
+# rib_box_min
+# shape (3,), dtype float64, range [-1, -1]
+#
+[-1. -1. -1.]

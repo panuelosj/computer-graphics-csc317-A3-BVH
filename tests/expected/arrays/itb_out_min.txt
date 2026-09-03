@@ -1,0 +1,4 @@
+# itb_out_min
+# shape (3,), dtype float64, range [-2, 0]
+#
+[-1. -2.  0.]

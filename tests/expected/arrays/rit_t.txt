@@ -1,0 +1,4 @@
+# rit_t
+# shape (4,), dtype float64, range [-1, 2]
+#
+[ 1. -1.  1.  2.]

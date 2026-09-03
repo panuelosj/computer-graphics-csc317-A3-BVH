@@ -1,0 +1,4 @@
+# pbd_box_max
+# shape (3,), dtype float64, range [1, 1]
+#
+[1. 1. 1.]
