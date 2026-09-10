@@ -132,6 +132,13 @@ def check_ray_intersect_triangle_mesh_brute_force():
         assert bool(hit) == bool(g["ray_bf_hit"][r]), (
             f"brute force: ray {r} hit expected {bool(g['ray_bf_hit'][r])}, got {bool(hit)}"
         )
+        if not g["ray_bf_hit"][r]:
+            # A miss must report face -1. Leaving a stale index here is easy to
+            # do and hard to spot: the miss still looks right, and the bogus
+            # face only surfaces later in whatever consumes the result.
+            assert int(f) == -1, (
+                f"brute force: ray {r} misses, so the face index must be -1, got {int(f)}"
+            )
         if g["ray_bf_hit"][r]:
             assert int(f) == int(g["ray_bf_f"][r]), (
                 f"brute force: ray {r} face expected {int(g['ray_bf_f'][r])}, got {int(f)}"
@@ -139,6 +146,84 @@ def check_ray_intersect_triangle_mesh_brute_force():
             assert np.isclose(t, g["ray_bf_t"][r]), (
                 f"brute force: ray {r} t expected {g['ray_bf_t'][r]}, got {t}"
             )
+
+    # The random fixture rays above never land exactly on a triangle boundary,
+    # so an inside-test written with strict inequalities (``beta > 0`` instead
+    # of ``beta >= 0``) passes them while quietly dropping every hit on an edge
+    # or a vertex. That shows up later as pinholes along shared edges, and
+    # because the tree checks are graded by agreement with this function, it is
+    # a confusing thing to debug. Pin the boundaries down explicitly.
+    A = np.array([0.0, 0.0, 0.0])
+    B = np.array([1.0, 0.0, 0.0])
+    C = np.array([0.0, 1.0, 0.0])
+    Vb = np.array([A, B, C])
+    Fb = np.array([[0, 1, 2]])
+    down = np.array([0.0, 0.0, -1.0])
+
+    def shoot(x, y, mesh_V=Vb, mesh_F=Fb, lo=0.0, hi=np.inf):
+        return ray_intersect_triangle_mesh_brute_force(
+            Ray(np.array([x, y, 1.0]), down), mesh_V, mesh_F, lo, hi
+        )
+
+    for x, y, where in [(0.25, 0.25, "inside"),
+                        (0.5, 0.0, "on edge AB"),
+                        (0.0, 0.5, "on edge AC"),
+                        (0.5, 0.5, "on the hypotenuse"),
+                        (0.0, 0.0, "at vertex A"),
+                        (1.0, 0.0, "at vertex B")]:
+        hit, t, _ = shoot(x, y)
+        assert hit, (
+            f"brute force: a ray through ({x}, {y}) -- {where} -- must hit. "
+            "The barycentric inside-test needs >= and <=, not > and <, or "
+            "every hit exactly on a boundary is lost."
+        )
+        assert np.isclose(t, 1.0), f"brute force: hit {where} should be at t=1, got {t}"
+
+    for x, y, where in [(0.5, -1e-4, "just outside edge AB"),
+                        (-1e-4, 0.5, "just outside edge AC"),
+                        (0.5, 0.5001, "just past the hypotenuse")]:
+        hit, _, _ = shoot(x, y)
+        assert not hit, (
+            f"brute force: a ray through ({x}, {y}) -- {where} -- must miss; "
+            "the inside-test is accepting points outside the triangle."
+        )
+
+    # A shared edge belongs to both triangles of a quad: a ray straight down it
+    # has to hit one of them, not fall through the crack between them.
+    Vq = np.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0],
+                   [0.0, 1.0, 0.0], [1.0, 1.0, 0.0]])
+    Fq = np.array([[0, 1, 2], [1, 3, 2]])
+    hit, t, f = shoot(0.5, 0.5, Vq, Fq)
+    assert hit and int(f) in (0, 1) and np.isclose(t, 1.0), (
+        "brute force: a ray down the shared edge of two triangles must hit one "
+        f"of them (got hit={bool(hit)}, face={int(f)}, t={t})"
+    )
+
+    # A ray pointing away from the triangle misses, and must say so cleanly.
+    hit, _, f = shoot(0.25, 0.25)
+    away, _, f_away = ray_intersect_triangle_mesh_brute_force(
+        Ray(np.array([0.25, 0.25, 1.0]), -down), Vb, Fb, 0.0, np.inf
+    )
+    assert not away and int(f_away) == -1, (
+        "brute force: a ray pointing away from the mesh must miss and report "
+        f"face -1 (got hit={bool(away)}, face={int(f_away)})"
+    )
+
+    # A mesh with no faces cannot be hit.
+    empty, _, f_empty = ray_intersect_triangle_mesh_brute_force(
+        Ray(np.array([0.25, 0.25, 1.0]), down), Vb,
+        np.zeros((0, 3), dtype=int), 0.0, np.inf
+    )
+    assert not empty and int(f_empty) == -1, (
+        "brute force: an empty face list must miss and report face -1"
+    )
+
+    # min_t must bound the search; the fixture only ever passes the full range.
+    # (max_t is deliberately not checked -- the stub tells students they may
+    # start the closest-hit tracker at infinity and ignore it.)
+    assert not shoot(0.25, 0.25, lo=1.5)[0], (
+        "brute force: min_t=1.5 must exclude the hit at t=1"
+    )
 
 
 def check_nearest_neighbor_brute_force():
